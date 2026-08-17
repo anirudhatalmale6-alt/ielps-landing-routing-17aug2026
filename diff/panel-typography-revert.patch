@@ -1,0 +1,297 @@
+commit 578632bf1fb2bfeb51d77a1a7272418189b64f9c
+Author: Anirudha Talmale <anirudhatalmale6@gmail.com>
+Date:   Mon Aug 17 12:27:20 2026 +0000
+
+    Revert the typography standardisation; it is held from this release
+    
+    Instruction: IELPS Public Landing Routing, Webhook & QA Amendment,
+    17 August 2026, section 6 — "Typography must be reverted from this build.
+    Typography waits for its own separate approval." Section 14 records it as
+    REVERT; NOT IN THIS RELEASE.
+    
+    Commit 25e11de carried two instructions at once: the pathway-first routing
+    correction, which is approved and stays, and the typography standardisation,
+    which is not. Only the typography half is undone here.
+    
+    Reverted to their 25e11de^ state:
+    
+      app/globals.css        --font-sans returns to Inter; --font-display returns
+                             to Bricolage over Inter; --font-content is removed.
+      app/layout.tsx         Hanken Grotesk is no longer loaded and no longer sits
+                             on <html>.
+      app/access/page.tsx    Plus Jakarta Sans is loaded again, as the approved
+      app/levels/[level]     16 August package supplied it. This is the "one
+                             deliberate departure" 25e11de raised for approval;
+                             approval did not come, so it goes back.
+      lesson-player.tsx      The font-content wrapper around StepScreen is removed.
+      preview/lesson-...     The font-content wrapper around the screens is removed.
+    
+    Kept, because they are approved and unrelated to typography:
+    
+      start-level-button.tsx  "Continue with <level>" -> /?level=<code>#pathways
+      level-band.tsx          "Continue with <level>" -> #pathways; no secondary
+                              "Choose a pathway instead"
+      cefr-panel.tsx          placement link -> /#pathways
+      site-header, access-header, hero, page.tsx, placement-explainer,
+      placement-test          the 17 August placement-control removal
+    
+    Verified in a browser against the built standalone output: the panel home and
+    the lesson player compute to Inter for interface text and Bricolage Grotesque
+    for display; the Access Panel and the six level pages compute to Plus Jakarta
+    Sans, exactly as the approved 16 August package. No Hanken Grotesk and no
+    font-content remains anywhere in app/ or components/. The approved copy and
+    routing are unchanged: "Continue with A1" still resolves to #pathways, the
+    panel header still carries only Pathways and Adult flow, and no Placement
+    control has come back. next build clean.
+
+diff --git a/app/access/page.tsx b/app/access/page.tsx
+index 7d3912e..a5a58b7 100644
+--- a/app/access/page.tsx
++++ b/app/access/page.tsx
+@@ -1,4 +1,5 @@
+ import type { Metadata } from 'next'
++import { Plus_Jakarta_Sans } from 'next/font/google'
+ import { AccessHeader } from '@/components/access/access-header'
+ import { CefrPanel } from '@/components/access/cefr-panel'
+ 
+@@ -14,16 +15,16 @@ import { CefrPanel } from '@/components/access/cefr-panel'
+  * markup, classes, copy and spacing are unchanged. The only edits made while
+  * bringing it into this app are the ones that turn a static preview into a
+  * working page: the palette tokens it uses are aliased onto the Pearson values
+- * this app already defines, and every control that arrived as href="#" now
+- * points at an address that already exists here.
+- *
+- * Typography, 17 August 2026: the design package shipped with Plus Jakarta
+- * Sans. This is an interface page, so under the typography standardisation it
+- * now takes the canonical public landing's interface face like every other
+- * interface page. That is the one deliberate departure from the package as
+- * supplied, and it is raised for approval rather than assumed.
++ * this app already defines, its typeface is loaded, and every control that
++ * arrived as href="#" now points at an address that already exists here.
+  */
+ 
++const jakarta = Plus_Jakarta_Sans({
++  subsets: ['latin'],
++  variable: '--font-jakarta',
++  display: 'swap',
++})
++
+ export const metadata: Metadata = {
+   title: 'IELPS Learning — Choose your English level',
+   description:
+@@ -32,7 +33,10 @@ export const metadata: Metadata = {
+ 
+ export default function AccessPage() {
+   return (
+-    <main className="relative min-h-screen overflow-hidden bg-indigo">
++    <main
++      className={`relative min-h-screen overflow-hidden bg-indigo ${jakarta.variable}`}
++      style={{ fontFamily: 'var(--font-jakarta), var(--font-inter), system-ui, sans-serif' }}
++    >
+       {/* subtle gold glow accent */}
+       <div
+         aria-hidden="true"
+diff --git a/app/globals.css b/app/globals.css
+index dd9a282..d4097cd 100644
+--- a/app/globals.css
++++ b/app/globals.css
+@@ -40,33 +40,8 @@
+   --color-blue: var(--secondary);
+   --color-lavender: var(--muted);
+ 
+-  /* Typography standardisation, 17 August 2026.
+-
+-     --font-sans and --font-display are now exactly what the canonical public
+-     landing loads: Hanken Grotesk for interface text, Bricolage Grotesque for
+-     display. Bricolage was already the display face here, so the interface
+-     face is the only thing that moves.
+-
+-     --font-content is the other half of the same instruction. Authored
+-     learning material — curriculum, lessons, readings, activities, assessment
+-     copy — keeps the typography it has today, which is Inter. It is a separate
+-     token rather than a hard-coded family so that the two can never drift, and
+-     so the boundary between "interface" and "authored content" is one grep
+-     away rather than scattered through the components.
+-
+-     The boundary itself is applied in exactly two places, both of which are
+-     where this app stops drawing chrome and starts drawing the curriculum:
+-       components/lesson-player/lesson-player.tsx  (the StepScreen handover)
+-       app/preview/lesson-interactions/page.tsx    (the same screens, previewed)
+-     Everything inside those — reading and writing windows, keyword pop-ups,
+-     quizzes, the verified activity runner — is a descendant, so it inherits.
+-
+-     font-serif is untouched. The lesson titles, vocabulary words and audio
+-     model sentences that use it were serif before this change and are serif
+-     after it. */
+-  --font-sans: var(--font-hanken), 'Hanken Grotesk', system-ui, sans-serif;
+-  --font-display: var(--font-bricolage), 'Hanken Grotesk', system-ui, sans-serif;
+-  --font-content: var(--font-inter), 'Inter', system-ui, sans-serif;
++  --font-sans: var(--font-inter), 'Inter', system-ui, sans-serif;
++  --font-display: var(--font-bricolage), 'Inter', system-ui, sans-serif;
+ 
+   --radius-sm: calc(var(--radius) * 0.55);
+   --radius-md: calc(var(--radius) * 0.75);
+diff --git a/app/layout.tsx b/app/layout.tsx
+index cec5e55..bfabef7 100644
+--- a/app/layout.tsx
++++ b/app/layout.tsx
+@@ -1,37 +1,15 @@
+ import { Analytics } from '@vercel/analytics/next'
+ import type { Metadata, Viewport } from 'next'
+-import { Inter, Bricolage_Grotesque, Hanken_Grotesk } from 'next/font/google'
++import { Inter, Bricolage_Grotesque } from 'next/font/google'
+ import './globals.css'
+ import { PipMount } from '@/components/pip/pip-mount'
+ 
+-/**
+- * Typography standardisation, 17 August 2026.
+- *
+- * The canonical public landing (repo IELPS-new-landing-page, branch
+- * hero-banner, a6e1cf1) loads exactly two faces: Hanken Grotesk as its body
+- * face and Bricolage Grotesque as its display face. This panel already used
+- * Bricolage for display, so the whole of the instruction reduces to one
+- * substitution — Inter gives way to Hanken Grotesk as the interface face.
+- *
+- * Inter is deliberately still loaded. Authored learning content keeps the
+- * typography it has today, and that typography is Inter. It is carried by
+- * --font-content in globals.css and applied at the one place the lesson player
+- * hands over to authored material. See globals.css for the boundary.
+- */
+-
+ const inter = Inter({
+   subsets: ['latin'],
+   variable: '--font-inter',
+   display: 'swap',
+ })
+ 
+-const hanken = Hanken_Grotesk({
+-  subsets: ['latin'],
+-  weight: ['400', '500', '600', '700'],
+-  variable: '--font-hanken',
+-  display: 'swap',
+-})
+-
+ const bricolage = Bricolage_Grotesque({
+   subsets: ['latin'],
+   variable: '--font-bricolage',
+@@ -61,10 +39,7 @@ export default function RootLayout({
+   children: React.ReactNode
+ }>) {
+   return (
+-    <html
+-      lang="en"
+-      className={`${hanken.variable} ${inter.variable} ${bricolage.variable} bg-background`}
+-    >
++    <html lang="en" className={`${inter.variable} ${bricolage.variable} bg-background`}>
+       <body className="font-sans antialiased">
+         {children}
+         {/* PiP is part of the approved Access Panel: the 12 August approved hero
+diff --git a/app/levels/[level]/page.tsx b/app/levels/[level]/page.tsx
+index a403759..19171ca 100644
+--- a/app/levels/[level]/page.tsx
++++ b/app/levels/[level]/page.tsx
+@@ -1,5 +1,6 @@
+ import Link from 'next/link'
+ import { notFound } from 'next/navigation'
++import { Plus_Jakarta_Sans } from 'next/font/google'
+ import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
+ import {
+   CEFR_LEVELS,
+@@ -22,6 +23,12 @@ import { StartLevelButton } from '@/components/access/start-level-button'
+  *    what happens when it cannot be.
+  */
+ 
++const jakarta = Plus_Jakarta_Sans({
++  subsets: ['latin'],
++  variable: '--font-jakarta',
++  display: 'swap',
++})
++
+ const NODE_BG: Record<CefrLevel['accent'], string> = {
+   turquoise: 'bg-turquoise text-indigo',
+   blue: 'bg-blue text-white',
+@@ -62,7 +69,10 @@ export default async function LevelPage({
+   const next = CEFR_LEVELS[index + 1]
+ 
+   return (
+-    <main className="min-h-dvh bg-indigo">
++    <main
++      className={`min-h-dvh bg-indigo ${jakarta.variable}`}
++      style={{ fontFamily: 'var(--font-jakarta), var(--font-inter), system-ui, sans-serif' }}
++    >
+       <AccessHeader />
+ 
+       <section className="mx-auto max-w-4xl px-4 pb-20 pt-28 sm:px-6 lg:pt-32">
+diff --git a/app/preview/lesson-interactions/page.tsx b/app/preview/lesson-interactions/page.tsx
+index 2424daa..20c23b7 100644
+--- a/app/preview/lesson-interactions/page.tsx
++++ b/app/preview/lesson-interactions/page.tsx
+@@ -100,11 +100,7 @@ function Section({ title, note, children }: { title: string; note: string; child
+     <section className="border-t border-border py-10 first:border-t-0">
+       <h2 className="font-display text-2xl font-black tracking-tight text-foreground">{title}</h2>
+       <p className="mt-1.5 max-w-3xl text-sm leading-relaxed text-muted-foreground">{note}</p>
+-      {/* The heading and the note above are this page's own chrome and take the
+-          interface face. The screens below are the authored-content screens, so
+-          they keep the curriculum typography exactly as the lesson player shows
+-          them (17 Aug 2026 typography standardisation). */}
+-      <div className="mt-6 font-content">{children}</div>
++      <div className="mt-6">{children}</div>
+     </section>
+   )
+ }
+diff --git a/components/lesson-player/lesson-player.tsx b/components/lesson-player/lesson-player.tsx
+index 51b7e2c..fa36500 100644
+--- a/components/lesson-player/lesson-player.tsx
++++ b/components/lesson-player/lesson-player.tsx
+@@ -360,32 +360,25 @@ export function LessonPlayer({ slug }: { slug: string }) {
+                 </span>
+                 <span className="hidden text-[11px] text-muted-foreground sm:block">{activeStep.stateRule}</span>
+               </div>
+-              {/* Everything below this line is authored learning material, so
+-                  it keeps the curriculum typography rather than taking the
+-                  interface face (17 Aug 2026 typography standardisation). The
+-                  wrapper carries no layout of its own — StepScreen's own root
+-                  is still the element that lays the step out. */}
+-              <div className="font-content">
+-                <StepScreen
+-                  step={activeStep}
+-                  lesson={lesson}
+-                  engine={engine}
+-                  accent={app.accent}
+-                  juniorReadability={variant.juniorReadability}
+-                  aiHelpEnabled={variant.aiHelpEnabled}
+-                  supportLanguage={supportLanguage}
+-                  setSupportLanguage={setSupportLanguage}
+-                  onDone={completeStep}
+-                  activity={activity}
+-                  activitySource={activitySource}
+-                  submission={submission}
+-                  onVerified={(value) => {
+-                    setSubmission(value)
+-                    setCompleted((previous) => new Set(previous).add(14))
+-                    setCurrent(15)
+-                  }}
+-                />
+-              </div>
++              <StepScreen
++                step={activeStep}
++                lesson={lesson}
++                engine={engine}
++                accent={app.accent}
++                juniorReadability={variant.juniorReadability}
++                aiHelpEnabled={variant.aiHelpEnabled}
++                supportLanguage={supportLanguage}
++                setSupportLanguage={setSupportLanguage}
++                onDone={completeStep}
++                activity={activity}
++                activitySource={activitySource}
++                submission={submission}
++                onVerified={(value) => {
++                  setSubmission(value)
++                  setCompleted((previous) => new Set(previous).add(14))
++                  setCurrent(15)
++                }}
++              />
+               {completionError ? <p role="alert" className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-foreground">{completionError}</p> : null}
+               {/* Endpoint wiring for this step */}
+               <div className="mt-6 flex flex-wrap gap-1.5 border-t border-border pt-4">

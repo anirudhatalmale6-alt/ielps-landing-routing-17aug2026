@@ -1,0 +1,318 @@
+--- Login.jsx.pre_chooser_removal_20260817	2026-08-13 20:54:08.126637570 +0000
++++ Login.jsx	2026-08-17 12:42:02.332354081 +0000
+@@ -12,6 +12,28 @@
+ const input = { width: "100%", padding: "12px 13px", borderRadius: 8, border: `1.5px solid ${T.border}`, fontSize: 15, fontFamily: "inherit", color: T.ink, background: T.surface, outline: "none", boxSizing: "border-box" };
+ const label = { fontSize: 12, fontWeight: 900, color: T.muted, textTransform: "uppercase", letterSpacing: ".04em", display: "block", marginBottom: 5 };
+ 
++// Pathway handoff from the Access Panel.
++//
++// Public Landing Routing, Webhook & QA Amendment, 17 August 2026, sections 2-4:
++// the pathway is chosen once, at /learner/, and this side no longer offers a
++// chooser of its own. Whatever made that choice hands the pathway id back in the
++// address and the matching registration form opens directly. An id that is not
++// one of the seven known pathways is ignored rather than opening anything, so a
++// guessed or stale link cannot resurrect the chooser.
++//
++// ?level= travels with it as context only. Section 4: a level taken from a
++// public informational surface "may be carried forward as context, but it must
++// not be represented as a server-assessed placement result". It is not treated
++// as one anywhere below.
++function handoffFromUrl() {
++  if (typeof window === "undefined") return null;
++  const params = new URLSearchParams(window.location.search);
++  const id = params.get("pathway");
++  if (!id || !ACCOUNT_PATHWAYS.some((item) => item.id === id)) return null;
++  const level = String(params.get("level") || "").toUpperCase();
++  return { id, level: ["A1", "A2", "B1", "B2", "C1", "C2"].includes(level) ? level : "" };
++}
++
+ function blankForm(pathway) {
+   return {
+     email: "",
+@@ -20,7 +42,11 @@
+     lastName: "",
+     name: "",
+     birthYear: "",
+-    cefrLevel: "A1",
++    // No longer self-selected. The age-band and starting-CEFR selects that used
++    // to set this were removed by section 4 of the 17 August amendment, which
++    // withdrew pre-placement level authority from this surface. It is populated
++    // only from an explicit Access Panel handoff, and sent only when set.
++    cefrLevel: "",
+     grade: "Grade 1",
+     registrationMethod: "email",
+     parentAgeConfirmed: pathway !== "parent",
+@@ -43,23 +69,24 @@
+   return <label><span style={label}>{title}</span>{children}</label>;
+ }
+ 
+-function PathwayCard({ item, active, onClick }) {
+-  const Icon = item.icon;
+-  return (
+-    <button onClick={onClick} style={{ textAlign: "left", border: `2px solid ${active ? item.tone : T.border}`, borderRadius: 8, background: active ? "#F9F9FC" : "#fff", padding: 12, cursor: "pointer", color: T.ink, display: "grid", gap: 8, minHeight: 144 }}>
+-      <span style={{ width: 36, height: 36, borderRadius: 8, display: "grid", placeItems: "center", background: item.tone, color: "#fff" }}><Icon size={19} /></span>
+-      <strong>{item.label}</strong>
+-      <span style={{ color: T.muted, fontWeight: 800, fontSize: 13, lineHeight: 1.35 }}>{item.summary}</span>
+-      <span style={{ color: active ? item.tone : T.muted, fontWeight: 900, fontSize: 12 }}>{item.short}</span>
+-    </button>
+-  );
+-}
++// PathwayCard, the seven-card grid's card, was removed with the chooser it drew
++// (17 August amendment, sections 1-2). ACCOUNT_PATHWAYS itself is still imported:
++// it validates the ?pathway= handoff and supplies the label and steps shown above
++// whichever registration form a pathway hands off to.
+ 
+ export default function Login({ gate = null }) {
+   const { login, register, studentLogin } = useAuth();
+-  const [pathwayId, setPathwayId] = useState("student_classroom_u12");
+-  const [mode, setMode] = useState("pathway");
+-  const [form, setForm] = useState(blankForm("student_classroom_u12"));
++  const handoff = useMemo(handoffFromUrl, []);
++  const [pathwayId, setPathwayId] = useState(handoff?.id || "student_12_plus");
++  // "login" is the only state this surface opens in by itself now. "register"
++  // and "classroom" are reached deliberately - by an Access Panel handoff, by a
++  // gated route that already knows its one pathway, or by the class-code link in
++  // the sign-in panel. "pathway", the seven-card grid, no longer exists.
++  const [mode, setMode] = useState(handoff ? "register" : "login");
++  const [form, setForm] = useState(() => {
++    const blank = blankForm(handoff?.id || "student_12_plus");
++    return handoff?.level ? { ...blank, cefrLevel: handoff.level } : blank;
++  });
+   const [profiles, setProfiles] = useState([]);
+   const [classInfo, setClassInfo] = useState(null);
+   const [busy, setBusy] = useState(false);
+@@ -87,7 +114,10 @@
+       email: form.email.trim(),
+       password: form.password,
+       name: fullName,
+-      cefr_level: form.cefrLevel,
++      // Sent only when a pathway handoff carried one. Nothing on this surface
++      // chooses a level any more, and an unset level is left to the backend's
++      // own canonical default rather than being asserted from the browser.
++      cefr_level: form.cefrLevel || undefined,
+       birthYear: form.birthYear ? Number(form.birthYear) : undefined,
+       gradeBand: form.grade,
+       registrationMethod: form.registrationMethod,
+@@ -103,7 +133,12 @@
+       classSetup: ["teacher", "studio"].includes(pathwayId) ? {
+         name: form.className,
+         grade: form.grade,
+-        level: form.cefrLevel,
++        // A class's starting level, not a learner placement result, and this
++        // form never offered a control for it: teachers and studio authors got
++        // the A1 default. Left exactly as it was - the amendment withdrew
++        // pre-placement level authority over learners, not the unchanged
++        // default a new class is created with.
++        level: form.cefrLevel || "A1",
+         method: form.classSetupMethod,
+       } : undefined,
+       schoolProfile: pathwayId === "school" ? {
+@@ -163,36 +198,46 @@
+   }
+ 
+   const button = { border: 0, borderRadius: 8, padding: "12px 13px", background: T.ink, color: "#fff", fontWeight: 900, cursor: busy ? "default" : "pointer", opacity: busy ? 0.65 : 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 };
+-  const [accessOpen, setAccessOpen] = useState(false);
++  // Open on arrival only when the Access Panel handed a pathway over. Nothing
++  // else opens this dialog by itself: the landing's own controls either sign in
++  // or leave for /learner/.
++  const [accessOpen, setAccessOpen] = useState(Boolean(handoff));
+   const landingRef = useRef(null);
+ 
+-  function openAccess(nextMode) {
++  // Direct authentication. Section 3 of the 17 August amendment: "Log in" and
++  // "Sign in" keep "Existing canonical direct authentication flow. Do not open
++  // the seven-card chooser." So this opens the sign-in form and nothing else.
++  function openSignIn() {
+     setErr("");
+-    if (nextMode === "placement") {
+-      choosePathway("student_12_plus");
+-      setMode("register");
+-    } else {
+-      setMode("login");
+-    }
++    setMode("login");
+     setAccessOpen(true);
+   }
+ 
+-  // From a locked route the visitor already told us where they were going, so the
+-  // access dialog opens straight away. Registration only pre-selects a route when the
+-  // page's own permissions leave exactly one; otherwise they choose from the grid.
++  // The pathway gateway. Every "get started" control on the Public Landing now
++  // ends up here instead of opening an overlay: /learner/ is the single place a
++  // pathway is chosen, and placement happens inside the pathway that uses it.
++  function openAccessPanel() {
++    window.location.assign("/learner/");
++  }
++
++  // From a locked route the visitor already told us where they were going. When
++  // the route's own permissions leave exactly one pathway, that IS the pathway
++  // choice - it was made by the address, not by a chooser - so the registration
++  // form opens on it directly. Anything less specific goes to /learner/ to choose
++  // once, rather than opening the seven-card grid this amendment removed.
+   function openRegistration() {
+     setErr("");
+     if (gate?.onlyPathwayId) {
+       choosePathway(gate.onlyPathwayId);
+       setMode("register");
+-    } else {
+-      setMode("pathway");
++      setAccessOpen(true);
++      return;
+     }
+-    setAccessOpen(true);
++    openAccessPanel();
+   }
+ 
+   useEffect(() => {
+-    document.title = gate ? `Sign in to continue - ${gate.title} | IELPS` : "EILPS - English Integrated Language Platform Studio";
++    document.title = gate ? `Sign in to continue - ${gate.title} | IELPS` : "IELPS - English Integrated Language Platform Studio";
+     const root = landingRef.current;
+     if (!root) return undefined;
+     const handleClick = (event) => {
+@@ -205,16 +250,34 @@
+         const open = menu?.classList.toggle("menu-open");
+         control.setAttribute("aria-expanded", String(Boolean(open)));
+       }
+-      if (action === "login" || action === "placement") {
++      // Section 3 of the 17 August amendment sets the destination of every
++      // control on this page by name. Two of them authenticate; the rest enter
++      // the Access Panel. Not one of them opens a pathway chooser here.
++      //
++      //   Log in, Sign in ................ data-eilps-action="login"
++      //   Start free, Start free placement,
++      //   Create account, Find your level,
++      //   Placement, Join the community .. data-eilps-action="placement"
++      //   Learn .......................... data-eilps-action="learner"
++      //
++      // "Join the community" carries the placement action too and so opened the
++      // chooser as well - an eighth control the instruction does not list by
++      // name. It is covered here because the rule is about the behaviour, not
++      // about the seven labels that were noticed.
++      if (action === "login") {
+         event.preventDefault();
+-        openAccess(action);
++        openSignIn();
++      }
++      if (action === "placement") {
++        event.preventDefault();
++        openAccessPanel();
+       }
+       if (action === "learner") {
+         event.preventDefault();
+         // The six CEFR course cards all open the Access Panel, each carrying the
+         // level it advertises. The panel reads ?level= and opens on that level.
+         const level = control.dataset.eilpsLevel;
+-        window.location.assign(level ? `/learner/?level=${encodeURIComponent(level)}` : "/learner");
++        window.location.assign(level ? `/learner/?level=${encodeURIComponent(level)}` : "/learner/");
+       }
+     };
+     root.addEventListener("click", handleClick);
+@@ -225,47 +288,53 @@
+     <div className={gate ? "eilps-gate" : "eilps-landing"} ref={landingRef}>
+       {!gate && <style>{`${landingCss}\n@media (max-width: 860px) { .eilps-landing .primary-nav.menu-open { display:grid; position:absolute; top:68px; right:24px; padding:14px; background:#fff; border:1px solid #CDCDDB; border-radius:12px; box-shadow:0 18px 40px -20px rgba(13,0,77,.42); z-index:30; } }`}</style>}
+       {gate
+-        ? <SignInRequired gate={gate} onSignIn={() => openAccess("login")} onRegister={openRegistration} />
++        ? <SignInRequired gate={gate} onSignIn={openSignIn} onRegister={openRegistration} />
+         : <div dangerouslySetInnerHTML={{ __html: landingMarkup }} />}
+       <MultilingualAgent role="learner" />
+       {accessOpen && (
+         <div role="dialog" aria-modal="true" aria-label="Account access" style={{ position: "fixed", inset: 0, zIndex: 450, display: "grid", placeItems: "center", padding: 18, background: "rgba(13,0,77,.42)", overflowY: "auto" }}>
+-          <div style={{ width: "min(1040px, 100%)", maxHeight: "calc(100vh - 36px)", overflowY: "auto", background: T.bg, borderRadius: 12, padding: 18, boxShadow: "0 26px 60px -22px rgba(13,0,77,.55)", fontFamily: "'Hanken Grotesk',sans-serif", color: T.ink }}>
++          {/* 1040px wide because it had to hold a seven-card grid beside the
++              form. The grid is gone, so the shell is the width of what is
++              actually left in it. */}
++          <div style={{ width: "min(520px, 100%)", maxHeight: "calc(100vh - 36px)", overflowY: "auto", background: T.bg, borderRadius: 12, padding: 18, boxShadow: "0 26px 60px -22px rgba(13,0,77,.55)", fontFamily: "'Hanken Grotesk',sans-serif", color: T.ink }}>
+             <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, marginBottom: 14 }}>
+               <div style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+                 <div style={{ width: 42, height: 42, borderRadius: 8, background: `linear-gradient(135deg,${T.purple},${T.gold})`, display: "grid", placeItems: "center" }}><Sparkles size={22} color="#fff" /></div>
+-                <div><strong style={{ fontFamily: "'Bricolage Grotesque',sans-serif", fontSize: 22 }}>EILPS</strong><div style={{ color: T.muted, fontWeight: 800, fontSize: 13 }}>Choose your access route</div></div>
++                <div><strong style={{ fontFamily: "'Bricolage Grotesque',sans-serif", fontSize: 22 }}>IELPS</strong><div style={{ color: T.muted, fontWeight: 800, fontSize: 13 }}>{mode === "classroom" ? "Class code sign in" : mode === "register" ? pathway.label : "Sign in to your account"}</div></div>
+               </div>
+-              <button type="button" onClick={() => setAccessOpen(false)} aria-label="Close access options" style={{ ...button, padding: "9px 11px", background: "#fff", color: T.ink, border: `1.5px solid ${T.border}` }}>Close</button>
++              <button type="button" onClick={() => setAccessOpen(false)} aria-label="Close" style={{ ...button, padding: "9px 11px", background: "#fff", color: T.ink, border: `1.5px solid ${T.border}` }}>Close</button>
+             </header>
+-            <section style={{ display: "grid", gridTemplateColumns: "minmax(300px, 1.25fr) minmax(320px, .85fr)", gap: 14, alignItems: "start" }}>
+-          <div style={{ background: "#fff", border: `1.5px solid ${T.border}`, borderRadius: 8, padding: 14 }}>
+-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+-              {ACCOUNT_PATHWAYS.map((item) => <PathwayCard key={item.id} item={item} active={item.id === pathwayId} onClick={() => choosePathway(item.id)} />)}
+-            </div>
+-          </div>
+-
+-          <div style={{ background: "#fff", border: `1.5px solid ${T.border}`, borderRadius: 8, padding: 18, position: "sticky", top: 16 }}>
++            {/* The seven-card pathway grid stood here until the 17 August
++                amendment. Sections 1-2: it duplicated the Access Panel on top of
++                the Public Landing, asked for age band and starting CEFR ahead of
++                canonical placement, and could run a role card straight into
++                account creation. It is gone, and with it the two-column layout
++                that existed only to hold it. What is left is the authentication
++                the same file legitimately owns, which section 2 says to preserve
++                and section 3 says Log in and Sign in must still reach directly. */}
++            <section style={{ display: "grid", gap: 14, alignItems: "start" }}>
++          <div style={{ background: "#fff", border: `1.5px solid ${T.border}`, borderRadius: 8, padding: 18 }}>
+             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+-              <span style={{ width: 34, height: 34, borderRadius: 8, background: pathway.tone, color: "#fff", display: "grid", placeItems: "center" }}><SelectedIcon size={18} /></span>
++              <span style={{ width: 34, height: 34, borderRadius: 8, background: mode === "login" ? T.ink : pathway.tone, color: "#fff", display: "grid", placeItems: "center" }}>{mode === "login" ? <KeyRound size={18} /> : <SelectedIcon size={18} />}</span>
+               <div>
+                 <strong>{mode === "login" ? "Existing account sign in" : pathway.label}</strong>
+                 <div style={{ color: T.muted, fontSize: 13, fontWeight: 800 }}>{mode === "login" ? "Teacher, parent, student 12+, tutor, school or studio." : pathway.steps.join(" -> ")}</div>
+               </div>
+             </div>
+ 
+-            {mode === "pathway" && (
+-              <p style={{ margin: 0, color: T.muted, fontWeight: 800, fontSize: 14, lineHeight: 1.5 }}>
+-                Choose the account type on the left. Each route asks for slightly different details, so the form appears once you pick one.
+-              </p>
+-            )}
+-
+             {mode === "login" && (
+               <form onSubmit={submitEmailLogin} style={{ display: "grid", gap: 10 }}>
+                 <Field title="Email"><input style={input} type="email" value={form.email} onChange={(e) => update("email", e.target.value)} required /></Field>
+                 <Field title="Password"><input style={input} type="password" value={form.password} onChange={(e) => update("password", e.target.value)} required /></Field>
+                 {err && <div style={{ color: T.danger, fontWeight: 900 }}>{err}</div>}
+                 <button type="submit" onClick={submitEmailLogin} disabled={busy} style={button}><KeyRound size={16} /> Sign in</button>
++                {/* Classroom students under 12 do not have an email address on
++                    IELPS - they sign in with a class code and a student profile.
++                    That form used to be reached by picking the first card in the
++                    grid. The grid is gone, so it is reached from here instead:
++                    removing the chooser must not take a working authentication
++                    route away with it (17 August amendment, section 2). */}
++                <button type="button" onClick={() => { setErr(""); choosePathway("student_classroom_u12"); }} style={{ background: "transparent", border: 0, color: T.purple, fontWeight: 900, cursor: "pointer" }}>Student with a class code?</button>
+               </form>
+             )}
+ 
+@@ -285,6 +354,7 @@
+                 <Field title="Student password"><input style={input} type="password" value={form.studentPassword} onChange={(e) => update("studentPassword", e.target.value)} required /></Field>
+                 {err && <div style={{ color: T.danger, fontWeight: 900 }}>{err}</div>}
+                 <button type="submit" onClick={submitStudentLogin} disabled={busy} style={button}><CheckCircle2 size={16} /> Open learner dashboard</button>
++                <button type="button" onClick={() => { setErr(""); setMode("login"); }} style={{ background: "transparent", border: 0, color: T.purple, fontWeight: 900, cursor: "pointer" }}>Sign in with an email address instead</button>
+               </form>
+             )}
+ 
+@@ -342,21 +412,12 @@
+                     <Field title="Billing email"><input style={input} type="email" value={form.billingEmail} onChange={(e) => update("billingEmail", e.target.value)} /></Field>
+                   </>
+                 )}
+-                {pathwayId === "student_12_plus" && (
+-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+-                    <Field title="Age band">
+-                      <select style={input} value={form.grade} onChange={(e) => update("grade", e.target.value)}>
+-                        <option>Teen learner</option>
+-                        <option>Adult learner</option>
+-                      </select>
+-                    </Field>
+-                    <Field title="Starting CEFR">
+-                      <select style={input} value={form.cefrLevel} onChange={(e) => update("cefrLevel", e.target.value)}>
+-                        {["A1", "A2", "B1", "B2", "C1", "C2"].map((level) => <option key={level}>{level}</option>)}
+-                      </select>
+-                    </Field>
+-                  </div>
+-                )}
++                {/* "Age band" and "Starting CEFR" stood here. Section 4 of the
++                    17 August amendment removes pre-placement age-band and
++                    starting-CEFR authority from this surface: a level chosen off
++                    a dropdown before placement is a self-allocated level, and
++                    age belongs in the pathway's own onboarding where it is
++                    actually needed. Nothing replaces them here. */}
+                 {err && <div style={{ color: T.danger, fontWeight: 900 }}>{err}</div>}
+                 <button type="submit" onClick={submitRegistration} disabled={busy} style={{ ...button, background: pathway.tone }}><CheckCircle2 size={16} /> Continue to {pathway.short}</button>
+                 <button type="button" onClick={() => setMode("login")} style={{ background: "transparent", border: 0, color: T.purple, fontWeight: 900, cursor: "pointer" }}>Already registered? Sign in</button>

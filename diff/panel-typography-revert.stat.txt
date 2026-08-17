@@ -1,0 +1,53 @@
+commit 578632bf1fb2bfeb51d77a1a7272418189b64f9c
+Author: Anirudha Talmale <anirudhatalmale6@gmail.com>
+Date:   Mon Aug 17 12:27:20 2026 +0000
+
+    Revert the typography standardisation; it is held from this release
+    
+    Instruction: IELPS Public Landing Routing, Webhook & QA Amendment,
+    17 August 2026, section 6 — "Typography must be reverted from this build.
+    Typography waits for its own separate approval." Section 14 records it as
+    REVERT; NOT IN THIS RELEASE.
+    
+    Commit 25e11de carried two instructions at once: the pathway-first routing
+    correction, which is approved and stays, and the typography standardisation,
+    which is not. Only the typography half is undone here.
+    
+    Reverted to their 25e11de^ state:
+    
+      app/globals.css        --font-sans returns to Inter; --font-display returns
+                             to Bricolage over Inter; --font-content is removed.
+      app/layout.tsx         Hanken Grotesk is no longer loaded and no longer sits
+                             on <html>.
+      app/access/page.tsx    Plus Jakarta Sans is loaded again, as the approved
+      app/levels/[level]     16 August package supplied it. This is the "one
+                             deliberate departure" 25e11de raised for approval;
+                             approval did not come, so it goes back.
+      lesson-player.tsx      The font-content wrapper around StepScreen is removed.
+      preview/lesson-...     The font-content wrapper around the screens is removed.
+    
+    Kept, because they are approved and unrelated to typography:
+    
+      start-level-button.tsx  "Continue with <level>" -> /?level=<code>#pathways
+      level-band.tsx          "Continue with <level>" -> #pathways; no secondary
+                              "Choose a pathway instead"
+      cefr-panel.tsx          placement link -> /#pathways
+      site-header, access-header, hero, page.tsx, placement-explainer,
+      placement-test          the 17 August placement-control removal
+    
+    Verified in a browser against the built standalone output: the panel home and
+    the lesson player compute to Inter for interface text and Bricolage Grotesque
+    for display; the Access Panel and the six level pages compute to Plus Jakarta
+    Sans, exactly as the approved 16 August package. No Hanken Grotesk and no
+    font-content remains anywhere in app/ or components/. The approved copy and
+    routing are unchanged: "Continue with A1" still resolves to #pathways, the
+    panel header still carries only Pathways and Adult flow, and no Placement
+    control has come back. next build clean.
+
+ app/access/page.tsx                        | 22 +++++++++------
+ app/globals.css                            | 29 ++-----------------
+ app/layout.tsx                             | 29 ++-----------------
+ app/levels/[level]/page.tsx                | 12 +++++++-
+ app/preview/lesson-interactions/page.tsx   |  6 +---
+ components/lesson-player/lesson-player.tsx | 45 +++++++++++++-----------------
+ 6 files changed, 48 insertions(+), 95 deletions(-)

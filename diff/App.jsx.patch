@@ -1,0 +1,11 @@
+--- App.jsx.pre_chooser_removal_20260817	2026-08-13 20:47:32.784062623 +0000
++++ App.jsx	2026-08-17 12:32:30.762102516 +0000
+@@ -30,7 +30,7 @@
+ function Splash() {
+   return (
+     <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#F9F9FC", color: "#555555", fontFamily: "'Hanken Grotesk',sans-serif", fontWeight: 700 }}>
+-      Loading EILPS...
++      Loading IELPS...
+     </div>
+   );
+ }
